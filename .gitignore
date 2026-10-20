@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Runtime artifacts
+audio/*
+!audio/.gitkeep
+results/*
+!results/.gitkeep
+models/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,2027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LecViz · Speech-to-Text Benchmarks</title>
+<style>
+  :root {
+    --bg: #f5f6fb;
+    --panel: #ffffff;
+    --ink: #0f172a;
+    --ink-soft: #334155;
+    --muted: #64748b;
+    --line: #e5e9f2;
+    --line-strong: #d6dcea;
+    --brand: #4f46e5;
+    --brand-dark: #4338ca;
+    --brand-soft: #eef2ff;
+    --accent: #06b6d4;
+    --ok: #059669;
+    --ok-soft: #ecfdf5;
+    --warn: #b45309;
+    --warn-soft: #fffbeb;
+    --err: #dc2626;
+    --err-soft: #fef2f2;
+    --radius: 16px;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px -12px rgba(15, 23, 42, .12);
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 420px at 12% -10%, rgba(79, 70, 229, .10), transparent 60%),
+      radial-gradient(720px 380px at 92% 0%, rgba(6, 182, 212, .10), transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Inter", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, select, input { font: inherit; }
+
+  .shell { max-width: 1240px; margin: 0 auto; padding: 28px 24px 48px; }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 18px; margin-bottom: 26px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-mark {
+    width: 46px; height: 46px; border-radius: 14px; flex: 0 0 auto;
+    background: linear-gradient(145deg, var(--brand) 0%, #7c3aed 55%, var(--accent) 130%);
+    display: grid; place-items: center; color: #fff;
+    box-shadow: 0 10px 22px -10px rgba(79, 70, 229, .8);
+  }
+  .brand-mark svg { width: 24px; height: 24px; }
+  .brand h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+  .brand p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+  .top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    background: #fff; border: 1px solid var(--line); color: var(--ink-soft);
+    box-shadow: var(--shadow);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; flex: 0 0 auto; }
+  .dot.working { background: #f59e0b; animation: pulse 1.1s infinite; }
+  .dot.done { background: var(--ok); }
+  .dot.error { background: var(--err); }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, .45); }
+    50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); }
+  }
+
+  .link-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 13px; border-radius: 10px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink-soft); text-decoration: none;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: .16s ease;
+  }
+  .link-btn:hover { border-color: var(--line-strong); background: #fbfcff; transform: translateY(-1px); }
+  .link-btn svg { width: 15px; height: 15px; }
+
+  /* ---------- Layout ---------- */
+  .layout {
+    display: flex; flex-direction: column; gap: 18px; align-items: stretch;
+  }
+  .layout > .stack:first-child {
+    display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 18px; align-items: start;
+  }
+  .stack { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--line);
+  }
+  .panel-head h2 {
+    margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .panel-body { padding: 18px; }
+
+  /* ---------- File picker ---------- */
+  .field-label {
+    display: block; font-size: 12px; font-weight: 700; color: var(--muted);
+    margin-bottom: 7px; letter-spacing: .03em;
+  }
+  .select-row { display: flex; gap: 8px; }
+  select {
+    width: 100%; min-width: 0; appearance: none;
+    padding: 10px 34px 10px 12px; border-radius: 10px;
+    border: 1px solid var(--line-strong); background: #fff;
+    color: var(--ink); cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 11px center;
+  }
+  select:focus-visible, button:focus-visible, .dropzone:focus-visible {
+    outline: 2px solid var(--brand); outline-offset: 2px;
+  }
+  select:disabled { background-color: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+
+  .icon-btn {
+    width: 40px; height: 40px; flex: 0 0 auto; display: grid; place-items: center;
+    border-radius: 10px; border: 1px solid var(--line-strong); background: #fff;
+    color: var(--muted); cursor: pointer; transition: .16s ease;
+  }
+  .icon-btn:hover:not(:disabled) { color: var(--ink); border-color: #c3ccdd; background: #fbfcff; }
+  .icon-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .icon-btn svg { width: 17px; height: 17px; }
+  .icon-btn.danger:hover:not(:disabled) { color: var(--err); border-color: #fecaca; background: var(--err-soft); }
+
+  .file-meta {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-top: 9px; font-size: 12px; color: var(--muted); min-height: 18px;
+  }
+  .file-meta span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .dropzone {
+    margin-top: 15px; border: 1.5px dashed #cbd5e1; border-radius: 12px;
+    background: #fafbff; padding: 20px 16px; text-align: center; cursor: pointer;
+    transition: .18s ease;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--brand); background: var(--brand-soft);
+  }
+  .dropzone.busy { pointer-events: none; opacity: .6; }
+  .dropzone svg { width: 24px; height: 24px; color: var(--brand); margin-bottom: 6px; }
+  .dropzone strong { display: block; font-size: 13.5px; }
+  .dropzone small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+
+  .upload-progress { margin-top: 10px; display: none; }
+  .upload-progress.show { display: block; }
+  .upload-progress .track {
+    height: 5px; background: #eef1f8; border-radius: 999px; overflow: hidden;
+  }
+  .upload-progress .bar {
+    height: 100%; width: 0%; border-radius: inherit;
+    background: linear-gradient(90deg, var(--brand), var(--accent));
+    transition: width .15s ease;
+  }
+  .upload-progress .caption { margin-top: 5px; font-size: 11.5px; color: var(--muted); }
+
+  /* ---------- Microphone ---------- */
+  .mic-row {
+    display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  }
+  .mic-btn {
+    flex: 1 1 180px; min-height: 42px;
+    border-color: #c7d2fe; background: var(--brand-soft); color: var(--brand-dark);
+  }
+  .mic-btn svg { color: var(--brand); }
+  .mic-btn:hover:not(:disabled) {
+    background: #e5e9ff; border-color: #a5b4fc;
+  }
+  .mic-btn.recording {
+    border-color: transparent; color: #fff;
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    box-shadow: 0 12px 22px -12px rgba(220, 38, 38, .9);
+  }
+  .mic-btn.recording svg { color: #fff; }
+  .mic-btn.recording:hover:not(:disabled) {
+    filter: brightness(1.06); background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  }
+  .rec-indicator {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 11px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    color: var(--err); background: var(--err-soft); border: 1px solid #fecaca;
+    white-space: nowrap;
+  }
+  .rec-indicator[hidden] { display: none; }
+  .rec-indicator b {
+    font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+    color: #991b1b; font-variant-numeric: tabular-nums;
+  }
+  .rec-dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--err); flex: 0 0 auto;
+    animation: recPulse 1.25s ease-in-out infinite;
+  }
+  @keyframes recPulse {
+    0%, 100% { transform: scale(.82); box-shadow: 0 0 0 0 rgba(220, 38, 38, .55); opacity: .75; }
+    50% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); opacity: 1; }
+  }
+  .mic-hint { margin: 8px 2px 0; font-size: 11.5px; color: var(--muted); text-align: center; }
+
+  .divider {
+    display: flex; align-items: center; gap: 10px; color: #94a3b8;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .1em; margin: 16px 0;
+  }
+  .divider::before, .divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 10px; border: 1px solid var(--line-strong); background: #fff;
+    color: var(--ink-soft); padding: 9px 13px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: .16s ease; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { background: #fbfcff; border-color: #c3ccdd; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn svg { width: 16px; height: 16px; }
+  .btn.wide { width: 100%; }
+  .btn.primary {
+    border: 0; color: #fff; padding: 13px 18px; font-size: 14.5px;
+    background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+    box-shadow: 0 12px 22px -12px rgba(67, 56, 202, .9);
+  }
+  .btn.primary:hover:not(:disabled) {
+    filter: brightness(1.05); transform: translateY(-1px);
+    box-shadow: 0 16px 26px -12px rgba(79, 70, 229, .95);
+  }
+  .btn.primary:active:not(:disabled) { transform: translateY(0); }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+  .btn.ghost:hover:not(:disabled) { background: #f8fafc; color: var(--ink); }
+  .btn.small { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+
+  .kbd {
+    font-family: var(--mono); font-size: 10.5px; padding: 2px 5px;
+    border: 1px solid rgba(255, 255, 255, .35); border-radius: 5px;
+    background: rgba(255, 255, 255, .14);
+  }
+
+  .run-note { margin: 10px 2px 0; font-size: 11.5px; color: var(--muted); text-align: center; }
+
+  .model-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; color: var(--ink-soft);
+    background: #f8fafc; border: 1px solid var(--line);
+    padding: 5px 9px; border-radius: 7px;
+  }
+  .chip b { color: var(--brand-dark); font-weight: 700; }
+  .model-note { margin: 0; font-size: 12px; color: var(--muted); }
+  .model-note.loaded { color: var(--ok); }
+  .model-note code, .tips code {
+    font-family: var(--mono); font-size: 10.5px; background: #f1f5f9;
+    padding: 1px 4px; border-radius: 4px; color: var(--ink-soft);
+  }
+
+  .tips {
+    margin: 0 0 10px; padding-left: 17px; color: var(--ink-soft);
+    font-size: 12.5px; line-height: 1.65;
+  }
+  .tips li + li { margin-top: 7px; }
+  .tips b { color: var(--ink); }
+  .mini-section {
+    margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--line);
+  }
+  .mini-section h3 {
+    margin: 0 0 8px; font-size: 10.5px; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--muted);
+  }
+
+  /* ---------- Transcript ---------- */
+  .transcript-panel .panel-head { padding-right: 12px; }
+  .head-tools { display: flex; align-items: center; gap: 6px; }
+
+  .status-line {
+    display: flex; align-items: center; gap: 9px; min-width: 0;
+    padding: 10px 18px; border-bottom: 1px solid var(--line);
+    background: #fcfdff; font-size: 12.5px; color: var(--muted);
+  }
+  .status-line strong { color: var(--ink-soft); font-weight: 600; }
+  .status-line .status-text {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  .progress { height: 3px; background: #eef1f8; overflow: hidden; display: none; }
+  .progress.show { display: block; }
+  .progress .bar {
+    width: 38%; height: 100%;
+    background: linear-gradient(90deg, var(--brand), var(--accent), var(--brand));
+    animation: slide 1.25s cubic-bezier(.45, .05, .55, .95) infinite;
+  }
+  @keyframes slide {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(300%); }
+  }
+
+  .transcript-scroll {
+    position: relative; height: 396px; overflow-y: auto; scroll-behavior: smooth;
+    padding: 20px 22px 26px; background:
+      linear-gradient(#fff, #fff) padding-box,
+      repeating-linear-gradient(to bottom, transparent 0 31px, #f6f8fd 31px 32px);
+    background-blend-mode: normal;
+  }
+  .transcript-scroll::-webkit-scrollbar { width: 10px; }
+  .transcript-scroll::-webkit-scrollbar-thumb {
+    background: #dbe2ee; border-radius: 99px; border: 3px solid #fff;
+  }
+  .transcript-scroll::-webkit-scrollbar-thumb:hover { background: #c5cfe1; }
+
+  .empty-state {
+    height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    color: var(--muted); padding: 10px;
+  }
+  .empty-state .glyph {
+    width: 58px; height: 58px; border-radius: 18px; display: grid; place-items: center;
+    background: linear-gradient(145deg, var(--brand-soft), #ecfeff);
+    color: var(--brand); margin-bottom: 13px;
+  }
+  .empty-state .glyph svg { width: 27px; height: 27px; }
+  .empty-state p { margin: 0 0 5px; font-weight: 600; color: var(--ink-soft); font-size: 14.5px; }
+  .empty-state small { max-width: 330px; line-height: 1.6; }
+  .empty-state.error .glyph { background: var(--err-soft); color: var(--err); }
+  .empty-state.error p { color: var(--err); }
+
+  .segment {
+    display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 12px;
+    padding: 7px 0; animation: segmentIn .4s cubic-bezier(.22, .61, .36, 1) both;
+  }
+  @keyframes segmentIn {
+    from { opacity: 0; transform: translateY(7px); }
+    to { opacity: 1; transform: none; }
+  }
+  .segment-time {
+    font-family: var(--mono); font-size: 10.5px; color: #94a3b8;
+    padding-top: 5px; letter-spacing: -.02em; user-select: none;
+  }
+  .segment-text { font-size: 15.5px; line-height: 1.75; color: var(--ink-soft); max-width: 1040px; }
+  .segment:first-child .segment-text { color: var(--ink); }
+
+  .live-caret {
+    display: flex; align-items: center; gap: 9px; padding: 10px 0 2px 74px;
+    color: var(--muted); font-size: 12px; font-style: italic;
+  }
+  .live-caret[hidden] { display: none; }
+  .live-caret .caret {
+    width: 2px; height: 16px; background: var(--brand); border-radius: 2px;
+    animation: blink 1s steps(2, start) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .transcript-stats {
+    display: flex; flex-wrap: wrap; gap: 8px 22px;
+    padding: 11px 22px; border-top: 1px solid var(--line); background: #fcfdff;
+    font-size: 12px; color: var(--muted);
+  }
+  .transcript-stats span b { color: var(--ink-soft); font-weight: 700; margin-left: 4px; }
+
+  /* ---------- Metrics ---------- */
+  .metrics-panel .panel-body { padding: 16px; }
+  .metrics {
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px;
+  }
+  .metric {
+    background: #fbfcff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 13px; min-width: 0;
+  }
+  .metric .label {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--muted); white-space: nowrap;
+  }
+  .metric .value {
+    margin-top: 6px; font-size: 21px; font-weight: 700; letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .metric .value small { font-size: 11px; color: var(--muted); font-weight: 600; margin-left: 3px; }
+  .metric .sub { margin-top: 2px; font-size: 10.5px; color: #94a3b8; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .metric.good .value { color: var(--ok); }
+  .metric.warn .value { color: var(--warn); }
+
+  /* ---------- Table ---------- */
+  .history { margin-top: 18px; }
+  .history .panel-body { padding: 0; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead th {
+    text-align: left; padding: 10px 16px; background: #fbfcff;
+    border-bottom: 1px solid var(--line); color: var(--muted);
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em;
+    white-space: nowrap; font-weight: 700;
+  }
+  tbody td {
+    padding: 11px 16px; border-bottom: 1px solid #f1f4fa;
+    color: var(--ink-soft); white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: #fbfcff; }
+  td.file-cell { max-width: 240px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px;
+    border-radius: 6px; font-size: 10.5px; font-weight: 700;
+  }
+  .badge.good { background: var(--ok-soft); color: var(--ok); }
+  .badge.fail { background: var(--err-soft); color: var(--err); }
+  .badge.slow { background: var(--warn-soft); color: var(--warn); }
+
+  .table-empty { padding: 26px 18px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  .panel-foot {
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 11px 18px; border-top: 1px solid var(--line); background: #fcfdff;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .panel-foot code {
+    font-family: var(--mono); font-size: 10.5px; background: #f1f5f9;
+    padding: 2px 5px; border-radius: 4px; color: var(--ink-soft);
+  }
+
+  /* ---------- Toasts ---------- */
+  .toasts {
+    position: fixed; right: 20px; bottom: 20px; display: flex;
+    flex-direction: column; gap: 8px; z-index: 50; max-width: min(360px, calc(100vw - 40px));
+  }
+  .toast {
+    display: flex; align-items: flex-start; gap: 9px;
+    padding: 11px 14px; border-radius: 10px; font-size: 13px;
+    background: var(--ink); color: #fff; box-shadow: 0 14px 30px -12px rgba(15, 23, 42, .5);
+    animation: toastIn .25s ease both;
+  }
+  .toast.success { background: #065f46; }
+  .toast.error { background: #991b1b; }
+  .toast.info { background: #1e293b; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+
+  @media (max-width: 1180px) {
+    .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 980px) {
+    .layout > .stack:first-child { grid-template-columns: 1fr; }
+    .transcript-scroll { height: 340px; }
+  }
+  @media (max-width: 620px) {
+    .shell { padding: 18px 14px 34px; }
+    .topbar { margin-bottom: 18px; }
+    .brand h1 { font-size: 20px; }
+    .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .segment { grid-template-columns: 1fr; gap: 1px; }
+    .segment-time { padding-top: 0; }
+    .live-caret { padding-left: 0; }
+    .transcript-scroll { padding: 16px; height: 320px; }
+    .transcript-stats { padding: 10px 16px; }
+    .top-actions .link-btn span { display: none; }
+    .top-actions .link-btn { padding: 9px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="11" rx="3"></rect>
+          <path d="M5 10v1a7 7 0 0 0 14 0v-1"></path>
+          <path d="M12 18v4"></path>
+          <path d="M8 22h8"></path>
+        </svg>
+      </div>
+      <div>
+        <h1>LecViz</h1>
+        <p>Local speech-to-text testing &amp; benchmarking</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="pill" id="modelPill">
+        <span class="dot" id="healthDot"></span>
+        <span id="modelPillText">connecting…</span>
+      </span>
+      <a class="link-btn" href="/docs" target="_blank" rel="noopener" title="Open the API documentation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"></path>
+        </svg>
+        <span>API</span>
+      </a>
+      <a class="link-btn" href="/api/benchmarks.csv" download title="Download the benchmark CSV">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <path d="m7 10 5 5 5-5"></path>
+          <path d="M12 15V3"></path>
+        </svg>
+        <span>CSV</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ============ Controls ============ -->
+    <div class="stack">
+      <section class="panel" aria-labelledby="sourceHeading">
+        <div class="panel-head">
+          <h2 id="sourceHeading">Audio source</h2>
+          <span class="pill" style="padding:4px 9px;font-size:11px;" id="fileCount">0 files</span>
+        </div>
+        <div class="panel-body">
+          <label class="field-label" for="fileSelect">Choose a file from audio/</label>
+          <div class="select-row">
+            <select id="fileSelect" aria-label="Select an audio file">
+              <option value="">Loading audio files…</option>
+            </select>
+            <button class="icon-btn" id="refreshBtn" title="Refresh file list" aria-label="Refresh file list">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                <path d="M21 3v6h-6"></path>
+              </svg>
+            </button>
+            <button class="icon-btn danger" id="deleteBtn" title="Delete selected file" aria-label="Delete selected file" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                <path d="M10 11v6M14 11v6"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="file-meta">
+            <span id="fileMeta">No file selected</span>
+            <span id="fileType"></span>
+          </div>
+
+          <div class="divider">or add audio</div>
+
+          <div class="dropzone" id="dropzone" tabindex="0" role="button"
+               aria-label="Upload an audio file by clicking or dragging it here">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <path d="m17 8-5-5-5 5"></path>
+              <path d="M12 3v12"></path>
+            </svg>
+            <strong>Drop an audio file here</strong>
+            <small id="dropHint">or click to browse · WAV, MP3, M4A, FLAC, OGG, WEBM</small>
+            <input type="file" id="fileInput" class="sr-only"
+                   accept=".wav,.mp3,.m4a,.flac,.ogg,.opus,.webm,.mp4,.aac,.wma,.aiff,.aif" />
+          </div>
+
+          <div class="upload-progress" id="uploadProgress">
+            <div class="track"><div class="bar" id="uploadBar"></div></div>
+            <div class="caption" id="uploadCaption">Uploading…</div>
+          </div>
+
+          <div class="divider">or record live</div>
+
+          <div class="mic-row">
+            <button class="btn mic-btn" id="micBtn" type="button" aria-pressed="false"
+                    title="Record from your microphone and transcribe in English">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="2" width="6" height="11" rx="3"></rect>
+                <path d="M5 10v1a7 7 0 0 0 14 0v-1"></path>
+                <path d="M12 18v4"></path>
+                <path d="M8 22h8"></path>
+              </svg>
+              <span id="micBtnText">Microphone</span>
+            </button>
+            <span class="rec-indicator" id="recIndicator" hidden aria-live="polite">
+              <span class="rec-dot" aria-hidden="true"></span>
+              <span id="recLabel">Recording…</span>
+              <b id="micTimer">00:00</b>
+            </span>
+          </div>
+          <p class="mic-hint" id="micHint">Speak into your microphone — English text appears live in the transcript.</p>
+
+          <button class="btn wide" id="sampleBtn" style="margin-top:12px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z"></path>
+              <path d="M19 15.5 20 18l2.5 1-2.5 1-1 2.5-1-2.5L15.5 19l2.5-1 1-2.5Z"></path>
+            </svg>
+            <span id="sampleBtnText">Generate a sample recording</span>
+          </button>
+          <div class="file-meta" style="justify-content:center;margin-top:7px;">
+            <span id="sampleHint">Creates a spoken test clip with Windows TTS</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="runHeading">
+        <div class="panel-head">
+          <h2 id="runHeading">Run test</h2>
+        </div>
+        <div class="panel-body">
+          <div class="model-chips" id="modelChips">
+            <span class="chip">model <b>—</b></span>
+            <span class="chip">device <b>—</b></span>
+            <span class="chip">compute <b>—</b></span>
+          </div>
+          <p class="model-note" id="modelNote">Loading configuration…</p>
+          <div style="margin-top:14px;">
+            <button class="btn primary wide" id="transcribeBtn" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 3l14 9-14 9V3Z"></path>
+              </svg>
+              <span id="transcribeBtnText">Start transcription</span>
+              <span class="kbd" id="transcribeKbd">Ctrl ↵</span>
+            </button>
+          </div>
+          <div class="run-note">
+            The model loads on the first run; later runs in this session reuse it.
+          </div>
+
+          <div class="mini-section">
+            <h3>What gets measured</h3>
+            <ul class="tips">
+              <li><b>Real-time factor</b> processing time ÷ audio length; below 1.0 is faster than real time.</li>
+              <li><b>Peak RAM</b> highest process memory during the run, including the loaded model.</li>
+              <li><b>CPU</b> process and whole-system usage, sampled every 100 ms.</li>
+            </ul>
+            <p class="model-note">Everything runs locally. Audio stays in <code>audio/</code>, metrics go to <code>results/benchmark.csv</code>.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ Transcript + metrics ============ -->
+    <div class="stack">
+      <section class="panel transcript-panel" aria-labelledby="transcriptHeading">
+        <div class="panel-head">
+          <h2 id="transcriptHeading">
+            <span id="statusDot" class="dot" style="display:inline-block;margin-right:7px;vertical-align:1px;"></span>
+            Live transcript
+          </h2>
+          <div class="head-tools">
+            <button class="btn small ghost" id="copyBtn" disabled title="Copy transcript">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="12" height="12" rx="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              Copy
+            </button>
+            <button class="btn small ghost" id="downloadBtn" disabled title="Download transcript as .txt">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <path d="m7 10 5 5 5-5"></path>
+                <path d="M12 15V3"></path>
+              </svg>
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div class="status-line">
+          <span id="statusDotSmall" class="dot"></span>
+          <span class="status-text" id="statusText" aria-live="polite">Ready when you are.</span>
+          <button class="btn small ghost" id="cancelBtn" style="margin-left:auto;display:none;">Cancel</button>
+        </div>
+        <div class="progress" id="progress"><div class="bar"></div></div>
+
+        <div class="transcript-scroll" id="transcript" aria-live="polite" aria-atomic="false">
+          <div class="empty-state" id="emptyState">
+            <div class="glyph" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"></path>
+                <path d="M8 10h.01M12 10h.01M16 10h.01"></path>
+              </svg>
+            </div>
+            <p>Your transcript will appear here</p>
+            <small>Select an audio file, then press <strong>Start transcription</strong>. Text streams in live as the model processes each segment.</small>
+          </div>
+          <div class="live-caret" id="liveCaret" hidden><span class="caret"></span> Listening…</div>
+        </div>
+
+        <div class="transcript-stats">
+          <span>Words<b id="statWords">0</b></span>
+          <span>Characters<b id="statChars">0</b></span>
+          <span>Language<b id="statLanguage">—</b></span>
+          <span>Audio length<b id="statDuration">—</b></span>
+          <span>Segments<b id="statSegments">0</b></span>
+        </div>
+      </section>
+
+      <section class="panel metrics-panel" aria-labelledby="metricsHeading">
+        <div class="panel-head">
+          <h2 id="metricsHeading">Performance</h2>
+          <span class="pill" style="padding:4px 9px;font-size:11px;">CPU benchmark</span>
+        </div>
+        <div class="panel-body">
+          <div class="metrics">
+            <div class="metric">
+              <div class="label">Processing time</div>
+              <div class="value" id="metricTime">—<small>s</small></div>
+              <div class="sub" id="metricTimeSub">wall clock</div>
+            </div>
+            <div class="metric" id="metricRtfCard">
+              <div class="label">Real-time factor</div>
+              <div class="value" id="metricRtf">—</div>
+              <div class="sub" id="metricRtfSub">RTF = time / audio</div>
+            </div>
+            <div class="metric" id="metricSpeedCard">
+              <div class="label">Speed-up</div>
+              <div class="value" id="metricSpeed">—</div>
+              <div class="sub" id="metricSpeedSub">vs. real time</div>
+            </div>
+            <div class="metric">
+              <div class="label">Peak RAM</div>
+              <div class="value" id="metricRam">—<small>MB</small></div>
+              <div class="sub" id="metricRamSub">whole process</div>
+            </div>
+            <div class="metric">
+              <div class="label">CPU usage</div>
+              <div class="value" id="metricCpu">—<small>%</small></div>
+              <div class="sub" id="metricCpuSub">process average</div>
+            </div>
+            <div class="metric">
+              <div class="label">System RAM</div>
+              <div class="value" id="metricSysRam">—<small>%</small></div>
+              <div class="sub" id="metricSysRamSub">average used</div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-foot">
+          <span>Main model: <code id="footModel">—</code></span>
+          <span>Results: <code>results/benchmark.csv</code></span>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============ History ============ -->
+  <section class="panel history" aria-labelledby="historyHeading">
+    <div class="panel-head">
+      <h2 id="historyHeading">Recent benchmark runs</h2>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="pill" style="padding:4px 9px;font-size:11px;" id="historyCount">0 runs</span>
+        <button class="icon-btn" id="historyRefreshBtn" title="Refresh history" aria-label="Refresh benchmark history">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+            <path d="M21 3v6h-6"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>File</th>
+              <th>Duration</th>
+              <th>Proc. time</th>
+              <th>RTF</th>
+              <th>Speed-up</th>
+              <th>Peak RAM</th>
+              <th>CPU</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="9" class="table-empty">No benchmark runs yet — your first transcription will show up here.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <span>Each run is appended to <code>results/benchmark.csv</code> and full transcripts are saved in <code>results/transcripts/</code>.</span>
+      <span>Model: <code id="footModel2">—</code></span>
+    </div>
+  </section>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const MAX_HISTORY = 8;
+  const LIVE_CHUNK_MS = 4000;       // how often a microphone blob is sent
+  const LIVE_MIN_BLOB_BYTES = 800;  // skip empty/silent blobs
+
+  const els = {
+    fileSelect: $("fileSelect"),
+    refreshBtn: $("refreshBtn"),
+    deleteBtn: $("deleteBtn"),
+    fileMeta: $("fileMeta"),
+    fileType: $("fileType"),
+    fileCount: $("fileCount"),
+    dropzone: $("dropzone"),
+    fileInput: $("fileInput"),
+    uploadProgress: $("uploadProgress"),
+    uploadBar: $("uploadBar"),
+    uploadCaption: $("uploadCaption"),
+    sampleBtn: $("sampleBtn"),
+    sampleBtnText: $("sampleBtnText"),
+    sampleHint: $("sampleHint"),
+    dropHint: $("dropHint"),
+    micBtn: $("micBtn"),
+    micBtnText: $("micBtnText"),
+    recIndicator: $("recIndicator"),
+    recLabel: $("recLabel"),
+    micTimer: $("micTimer"),
+    transcribeBtn: $("transcribeBtn"),
+    transcribeBtnText: $("transcribeBtnText"),
+    transcribeKbd: $("transcribeKbd"),
+    cancelBtn: $("cancelBtn"),
+    modelChips: $("modelChips"),
+    modelNote: $("modelNote"),
+    modelPillText: $("modelPillText"),
+    healthDot: $("healthDot"),
+    statusDot: $("statusDot"),
+    statusDotSmall: $("statusDotSmall"),
+    statusText: $("statusText"),
+    progress: $("progress"),
+    transcript: $("transcript"),
+    emptyState: $("emptyState"),
+    liveCaret: $("liveCaret"),
+    copyBtn: $("copyBtn"),
+    downloadBtn: $("downloadBtn"),
+    statWords: $("statWords"),
+    statChars: $("statChars"),
+    statLanguage: $("statLanguage"),
+    statDuration: $("statDuration"),
+    statSegments: $("statSegments"),
+    metricTime: $("metricTime"),
+    metricTimeSub: $("metricTimeSub"),
+    metricRtf: $("metricRtf"),
+    metricRtfSub: $("metricRtfSub"),
+    metricRtfCard: $("metricRtfCard"),
+    metricSpeed: $("metricSpeed"),
+    metricSpeedSub: $("metricSpeedSub"),
+    metricSpeedCard: $("metricSpeedCard"),
+    metricRam: $("metricRam"),
+    metricRamSub: $("metricRamSub"),
+    metricCpu: $("metricCpu"),
+    metricCpuSub: $("metricCpuSub"),
+    metricSysRam: $("metricSysRam"),
+    metricSysRamSub: $("metricSysRamSub"),
+    footModel: $("footModel"),
+    footModel2: $("footModel2"),
+    historyBody: $("historyBody"),
+    historyCount: $("historyCount"),
+    historyRefreshBtn: $("historyRefreshBtn"),
+    toasts: $("toasts"),
+  };
+
+  const state = {
+    config: null,
+    files: [],
+    selected: null,
+    busy: false,
+    es: null,
+    text: "",
+    autoScroll: true,
+    segmentCount: 0,
+    words: 0,
+    chars: 0,
+    live: {
+      active: false,
+      starting: false,
+      stopping: false,
+      stopSent: false,
+      ws: null,
+      stream: null,
+      recorder: null,
+      chunkTimer: null,
+      uiTimer: null,
+      stopTimer: null,
+      startedAt: 0,
+      chunkStartedAt: 0,
+      mimeType: "",
+    },
+  };
+
+  // ---------------------------------------------------------------------
+  // Small utilities
+  // ---------------------------------------------------------------------
+  function api(path, options) {
+    const opts = Object.assign({}, options || {});
+    if (!opts.cache) opts.cache = "no-store";
+    return fetch(path, opts).then(async (res) => {
+      const type = res.headers.get("content-type") || "";
+      const body = type.includes("application/json")
+        ? await res.json().catch(() => null)
+        : await res.text();
+      if (!res.ok) {
+        const message = body && typeof body === "object" ? body.detail : body;
+        throw new Error(message || "Request failed (" + res.status + ")");
+      }
+      return body;
+    });
+  }
+
+  function toast(message, kind) {
+    const node = document.createElement("div");
+    node.className = "toast " + (kind || "info");
+    node.textContent = message;
+    els.toasts.appendChild(node);
+    window.setTimeout(() => {
+      node.style.transition = "opacity .25s ease, transform .25s ease";
+      node.style.opacity = "0";
+      node.style.transform = "translateY(6px)";
+      window.setTimeout(() => node.remove(), 260);
+    }, 4200);
+  }
+
+  function clock(seconds) {
+    const total = Math.max(0, Math.round(Number(seconds) || 0));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const mm = String(m).padStart(2, "0");
+    const ss = String(s).padStart(2, "0");
+    return h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
+  }
+
+  function num(value, digits) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "—";
+    return n.toFixed(digits == null ? 2 : digits);
+  }
+
+  function formatWhen(iso) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso || "—";
+    return date.toLocaleString(undefined, {
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+  }
+
+  function setDot(element, status) {
+    element.classList.remove("working", "done", "error");
+    if (status) element.classList.add(status);
+  }
+
+  function setStatus(status, text) {
+    setDot(els.statusDot, status);
+    setDot(els.statusDotSmall, status);
+    setDot(els.healthDot, status === "working" ? "working" : status === "error" ? "error" : status === "done" ? "done" : "");
+    els.statusText.textContent = text;
+  }
+
+  function setBusy(busy) {
+    state.busy = busy;
+    els.transcribeBtn.disabled = busy || !state.selected;
+    els.fileSelect.disabled = busy;
+    els.refreshBtn.disabled = busy;
+    els.deleteBtn.disabled = busy || !state.selected;
+    els.sampleBtn.disabled = busy;
+    els.dropzone.classList.toggle("busy", busy);
+    els.progress.classList.toggle("show", busy);
+    els.cancelBtn.style.display = busy ? "inline-flex" : "none";
+    els.transcribeKbd.style.display = busy ? "none" : "inline-block";
+    els.transcribeBtnText.textContent = busy ? "Transcribing…" : "Start transcription";
+    if (!state.live.active) els.liveCaret.hidden = !busy;
+    updateMicUi();
+  }
+
+  function updateMicUi() {
+    const live = state.live;
+    const recording = live.active;
+    els.micBtn.classList.toggle("recording", recording);
+    els.micBtn.disabled = state.busy || live.starting || live.stopping;
+    els.micBtn.setAttribute("aria-pressed", recording ? "true" : "false");
+    els.micBtnText.textContent = recording
+      ? (live.stopping ? "Finishing…" : "Stop recording")
+      : (live.starting ? "Starting…" : "Microphone");
+    els.transcribeBtn.disabled =
+      state.busy || !state.selected || live.active || live.starting;
+    els.recIndicator.hidden = !recording;
+    if (!recording) els.micTimer.textContent = "00:00";
+  }
+
+  function scrollTranscript(force) {
+    if (state.autoScroll || force) {
+      els.transcript.scrollTop = els.transcript.scrollHeight;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // File selection + upload
+  // ---------------------------------------------------------------------
+  function selectedInfo() {
+    return state.files.find((f) => f.name === state.selected) || null;
+  }
+
+  function updateFileMeta() {
+    const info = selectedInfo();
+    if (!info) {
+      els.fileMeta.textContent = "No file selected";
+      els.fileType.textContent = "";
+      els.deleteBtn.disabled = true;
+      els.transcribeBtn.disabled = true;
+      return;
+    }
+    els.fileMeta.textContent = info.name + " · " + info.size_mb + " MB";
+    els.fileType.textContent = "modified " + formatWhen(info.modified);
+    els.deleteBtn.disabled = state.busy;
+    els.transcribeBtn.disabled = state.busy || state.live.active;
+  }
+
+  function renderFiles(preferred) {
+    const previous = preferred || state.selected;
+    els.fileSelect.innerHTML = "";
+
+    if (!state.files.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "No audio files yet — upload or generate a sample";
+      els.fileSelect.appendChild(option);
+      state.selected = null;
+    } else {
+      state.files.forEach((file) => {
+        const option = document.createElement("option");
+        option.value = file.name;
+        option.textContent = file.name + " · " + file.size_mb + " MB";
+        els.fileSelect.appendChild(option);
+      });
+      const exists = state.files.some((f) => f.name === previous);
+      state.selected = exists ? previous : state.files[0].name;
+      els.fileSelect.value = state.selected;
+    }
+
+    els.fileCount.textContent = state.files.length + (state.files.length === 1 ? " file" : " files");
+    updateFileMeta();
+  }
+
+  async function loadFiles(preferred) {
+    try {
+      const data = await api("/api/files");
+      state.files = data.files || [];
+      renderFiles(preferred);
+      return data;
+    } catch (error) {
+      els.fileSelect.innerHTML = '<option value="">Could not load audio files</option>';
+      els.fileMeta.textContent = "Could not load audio files";
+      state.selected = null;
+      updateFileMeta();
+      toast("Could not load audio files: " + error.message, "error");
+      return null;
+    }
+  }
+
+  function showUploadProgress(percent, text) {
+    els.uploadProgress.classList.add("show");
+    els.uploadBar.style.width = Math.max(0, Math.min(100, percent)) + "%";
+    els.uploadCaption.textContent = text;
+  }
+
+  function hideUploadProgress(delay) {
+    window.setTimeout(() => {
+      els.uploadProgress.classList.remove("show");
+      els.uploadBar.style.width = "0%";
+    }, delay || 0);
+  }
+
+  function uploadWithProgress(file, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/upload");
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) onProgress(event.loaded / event.total);
+      });
+      xhr.addEventListener("load", () => {
+        let body = null;
+        try { body = JSON.parse(xhr.responseText); } catch (_) { /* ignore */ }
+        if (xhr.status >= 200 && xhr.status < 300 && body) {
+          resolve(body);
+        } else {
+          const detail = body && body.detail ? body.detail : "Upload failed (" + xhr.status + ")";
+          reject(new Error(detail));
+        }
+      });
+      xhr.addEventListener("error", () => reject(new Error("Upload failed: network error.")));
+      xhr.addEventListener("abort", () => reject(new Error("Upload cancelled.")));
+      const form = new FormData();
+      form.append("file", file);
+      xhr.send(form);
+    });
+  }
+
+  async function handleUpload(file) {
+    if (!file || state.busy) return;
+
+    const maxMb = state.config ? state.config.max_upload_mb : 500;
+    if (file.size > maxMb * 1024 * 1024) {
+      toast("That file is larger than the " + maxMb + " MB limit.", "error");
+      return;
+    }
+    const extension = "." + (file.name.split(".").pop() || "").toLowerCase();
+    const allowed = state.config ? state.config.allowed_extensions : [];
+    if (allowed.length && !allowed.includes(extension)) {
+      toast("Unsupported file type: " + extension, "error");
+      return;
+    }
+
+    els.dropzone.classList.add("busy");
+    showUploadProgress(2, "Uploading " + file.name + "…");
+
+    try {
+      const data = await uploadWithProgress(file, (ratio) => {
+        showUploadProgress(ratio * 100, "Uploading " + file.name + " · " + Math.round(ratio * 100) + "%");
+      });
+      state.files = data.files || [];
+      state.selected = data.file.name;
+      renderFiles(data.file.name);
+      showUploadProgress(100, "Uploaded " + data.file.name);
+      hideUploadProgress(900);
+      toast("Uploaded " + data.file.name, "success");
+    } catch (error) {
+      hideUploadProgress(0);
+      toast(error.message, "error");
+    } finally {
+      els.dropzone.classList.remove("busy");
+      els.fileInput.value = "";
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Config + sample
+  // ---------------------------------------------------------------------
+  async function loadConfig() {
+    try {
+      const config = await api("/api/config");
+      state.config = config;
+      els.modelChips.innerHTML = "";
+      [["model", config.model], ["device", config.device], ["compute", config.compute_type]].forEach(([label, value]) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.append(document.createTextNode(label + " "));
+        const strong = document.createElement("b");
+        strong.textContent = value;
+        chip.appendChild(strong);
+        els.modelChips.appendChild(chip);
+      });
+      els.footModel.textContent = config.model;
+      els.footModel2.textContent = config.model;
+      els.modelPillText.textContent = config.model + " · " + config.device + " · " + config.compute_type;
+      els.modelNote.textContent = "Model runs locally on " + config.device.toUpperCase() +
+        " with " + config.compute_type + " quantization. Loads once, then stays in memory.";
+      const formats = config.allowed_extensions.map((ext) => ext.replace(".", "").toUpperCase()).join(", ");
+      els.dropHint.textContent = "or click to browse · " + formats;
+      els.sampleHint.textContent = config.sample_available
+        ? "Sample ready — click to load it"
+        : "Creates a spoken test clip with Windows TTS";
+      if (config.sample_available && !state.selected) {
+        await loadFiles(config.sample_name);
+      }
+    } catch (error) {
+      els.modelNote.textContent = "Could not load configuration: " + error.message;
+      toast("Could not load configuration: " + error.message, "error");
+    }
+  }
+
+  async function generateSample() {
+    if (state.busy) return;
+    const original = els.sampleBtnText.textContent;
+    els.sampleBtn.disabled = true;
+    els.sampleBtnText.textContent = "Generating sample…";
+    try {
+      const data = await api("/api/sample", { method: "POST" });
+      state.files = data.files || [];
+      state.selected = data.file.name;
+      renderFiles(data.file.name);
+      els.sampleHint.textContent = "Sample ready — click to load it";
+      toast(data.created ? "Sample recording created." : "Loaded the existing sample.", "success");
+    } catch (error) {
+      toast(error.message, "error");
+    } finally {
+      els.sampleBtn.disabled = state.busy;
+      els.sampleBtnText.textContent = original;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Live microphone (MediaRecorder + WebSocket)
+  // ---------------------------------------------------------------------
+  function liveMimeType() {
+    if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== "function") {
+      return "";
+    }
+    const candidates = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus",
+      "audio/mp4",
+    ];
+    for (const type of candidates) {
+      try {
+        if (MediaRecorder.isTypeSupported(type)) return type;
+      } catch (_) { /* keep probing */ }
+    }
+    return "";
+  }
+
+  function liveSocketUrl() {
+    const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return scheme + "//" + window.location.host + "/ws/live";
+  }
+
+  function setLiveLabel(text) {
+    els.recLabel.textContent = text;
+  }
+
+  async function startLive() {
+    const live = state.live;
+    if (live.active || live.starting) return;
+    if (state.busy) {
+      toast("Wait for the current transcription to finish.", "info");
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      toast("This browser cannot record audio. Try a recent Chrome, Edge, or Firefox.", "error");
+      return;
+    }
+
+    live.starting = true;
+    updateMicUi();
+    setStatus("working", "Requesting microphone access…");
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    } catch (error) {
+      live.starting = false;
+      updateMicUi();
+      setStatus("error", "Microphone access was blocked or unavailable.");
+      toast("Microphone error: " + (error && error.message ? error.message : "access denied"), "error");
+      return;
+    }
+
+    resetRunUi();
+    live.stream = stream;
+    live.mimeType = liveMimeType();
+    live.starting = false;
+    live.stopping = false;
+    live.stopSent = false;
+    live.active = true;
+    live.startedAt = 0;
+    els.micTimer.textContent = "00:00";
+    els.statLanguage.textContent = "en · live";
+    els.liveCaret.hidden = false;
+    setLiveLabel("Connecting…");
+    updateMicUi();
+
+    const socket = new WebSocket(liveSocketUrl());
+    socket.binaryType = "arraybuffer";
+    live.ws = socket;
+
+    socket.addEventListener("open", () => {
+      if (live.ws !== socket || !live.active) return;
+      try {
+        socket.send(JSON.stringify({
+          type: "start",
+          mime_type: live.mimeType,
+          language: "en",
+        }));
+      } catch (_) { /* ignore */ }
+
+      live.startedAt = performance.now();
+      live.chunkStartedAt = live.startedAt;
+      setLiveLabel("Recording…");
+      setStatus("working", "Listening — speak now.");
+      startLiveTimer();
+      startLiveRecorderCycle();
+    });
+
+    socket.addEventListener("message", (event) => {
+      if (live.ws !== socket) return;
+      let payload;
+      try {
+        payload = JSON.parse(event.data);
+      } catch (_) {
+        return;
+      }
+      if (!payload || typeof payload !== "object") return;
+
+      if (payload.type === "transcript") {
+        appendLiveTranscript(payload);
+      } else if (payload.type === "status") {
+        setStatus("working", payload.message || "Listening…");
+      } else if (payload.type === "error") {
+        toast(payload.message || "Live transcription error.", "error");
+      } else if (payload.type === "done") {
+        finishLive(payload, null);
+      }
+    });
+
+    socket.addEventListener("close", () => {
+      if (live.ws !== socket || !live.active) return;
+      if (live.stopping) {
+        finishLive(null, null);
+      } else {
+        finishLive(null, "Lost the connection to the server.");
+      }
+    });
+
+    socket.addEventListener("error", () => {
+      // The close handler above reports the failure to the user.
+    });
+  }
+
+  function startLiveTimer() {
+    const live = state.live;
+    window.clearInterval(live.uiTimer);
+    live.uiTimer = window.setInterval(() => {
+      if (!live.active || !live.startedAt) return;
+      const elapsed = Math.max(0, (performance.now() - live.startedAt) / 1000);
+      els.micTimer.textContent = clock(elapsed);
+      els.statDuration.textContent = clock(elapsed);
+    }, 500);
+  }
+
+  // A fresh MediaRecorder is started for every chunk: each blob is then a
+  // complete, independently decodable audio file (continuation chunks from a
+  // single timesliced recorder have no container header).
+  function startLiveRecorderCycle() {
+    const live = state.live;
+    if (!live.active || !live.stream || live.stopping) return;
+
+    let recorder;
+    try {
+      recorder = live.mimeType
+        ? new MediaRecorder(live.stream, { mimeType: live.mimeType })
+        : new MediaRecorder(live.stream);
+    } catch (error) {
+      finishLive(null, "Could not start the microphone recorder: " + error.message);
+      return;
+    }
+
+    const parts = [];
+    live.recorder = recorder;
+    live.chunkStartedAt = performance.now();
+
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size) parts.push(event.data);
+    };
+
+    recorder.onerror = (event) => {
+      const message = event && event.error && event.error.message
+        ? event.error.message
+        : "unknown recorder error";
+      toast("Recording error: " + message, "error");
+    };
+
+    recorder.onstop = () => {
+      window.clearTimeout(live.chunkTimer);
+      live.chunkTimer = null;
+
+      const type = recorder.mimeType || live.mimeType || "audio/webm";
+      const blob = new Blob(parts, { type });
+      const offset = Math.max(0, (live.chunkStartedAt - live.startedAt) / 1000);
+      if (blob.size >= LIVE_MIN_BLOB_BYTES) {
+        sendLiveChunk(blob, offset);
+      }
+
+      if (live.active && !live.stopping) {
+        startLiveRecorderCycle();
+      } else if (live.stopping) {
+        completeLiveStop();
+      }
+    };
+
+    recorder.start();
+    live.chunkTimer = window.setTimeout(() => {
+      if (recorder.state === "recording") {
+        try {
+          recorder.stop();
+        } catch (_) { /* ignore */ }
+      }
+    }, LIVE_CHUNK_MS);
+  }
+
+  function sendLiveChunk(blob, offsetSeconds) {
+    const live = state.live;
+    const socket = live.ws;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    try {
+      socket.send(JSON.stringify({
+        type: "chunk",
+        offset: Number(offsetSeconds.toFixed(2)),
+      }));
+      socket.send(blob);
+    } catch (error) {
+      toast("Could not send audio to the server: " + error.message, "error");
+    }
+  }
+
+  function appendLiveTranscript(payload) {
+    const text = String(payload.text || "").trim();
+    if (!text) return;
+    appendSegment({ start: Number(payload.offset) || 0, text });
+    const live = state.live;
+    if (live.active && live.startedAt) {
+      els.statDuration.textContent = clock((performance.now() - live.startedAt) / 1000);
+    }
+    els.statLanguage.textContent = "en · live";
+  }
+
+  function stopLive() {
+    const live = state.live;
+    if (!live.active || live.stopping) return;
+
+    live.stopping = true;
+    window.clearTimeout(live.chunkTimer);
+    window.clearInterval(live.uiTimer);
+    els.liveCaret.hidden = true;
+    setLiveLabel("Finishing…");
+    updateMicUi();
+    setStatus("working", "Finishing the last audio chunk…");
+
+    const recorder = live.recorder;
+    if (recorder && recorder.state === "recording") {
+      try {
+        recorder.stop(); // flushes the final blob, then completeLiveStop()
+      } catch (_) {
+        completeLiveStop();
+      }
+    } else {
+      completeLiveStop();
+    }
+  }
+
+  function completeLiveStop() {
+    const live = state.live;
+    if (live.stopSent) return;
+    live.stopSent = true;
+
+    const socket = live.ws;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      try {
+        socket.send(JSON.stringify({ type: "stop" }));
+      } catch (_) { /* ignore */ }
+      // Do not hang forever if the final chunk cannot be decoded.
+      live.stopTimer = window.setTimeout(() => finishLive(null, null), 15000);
+    } else {
+      finishLive(null, null);
+    }
+  }
+
+  function teardownLive() {
+    const live = state.live;
+    live.active = false;
+    live.starting = false;
+    live.stopping = false;
+    live.stopSent = false;
+
+    window.clearTimeout(live.chunkTimer);
+    window.clearInterval(live.uiTimer);
+    window.clearTimeout(live.stopTimer);
+    live.chunkTimer = null;
+    live.uiTimer = null;
+    live.stopTimer = null;
+
+    if (live.recorder) {
+      live.recorder.ondataavailable = null;
+      live.recorder.onstop = null;
+      live.recorder.onerror = null;
+      try {
+        if (live.recorder.state !== "inactive") live.recorder.stop();
+      } catch (_) { /* ignore */ }
+      live.recorder = null;
+    }
+
+    if (live.stream) {
+      live.stream.getTracks().forEach((track) => track.stop());
+      live.stream = null;
+    }
+
+    if (live.ws) {
+      const socket = live.ws;
+      live.ws = null;
+      try {
+        socket.close();
+      } catch (_) { /* ignore */ }
+    }
+
+    els.recIndicator.hidden = true;
+    els.liveCaret.hidden = true;
+    updateMicUi();
+  }
+
+  function recountTranscript() {
+    const text = String(state.text || "").trim();
+    state.words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+    state.chars = text.length;
+    els.statWords.textContent = String(state.words);
+    els.statChars.textContent = String(state.chars);
+  }
+
+  function finishLive(payload, errorMessage) {
+    const live = state.live;
+    const elapsed = live.startedAt
+      ? Math.max(0, (performance.now() - live.startedAt) / 1000)
+      : 0;
+    const chunks = state.segmentCount;
+
+    teardownLive();
+
+    if (payload && typeof payload.text === "string" && payload.text.trim()) {
+      state.text = payload.text.trim();
+      recountTranscript();
+    }
+
+    els.statLanguage.textContent = "en · live";
+    els.statDuration.textContent = clock(elapsed);
+    els.statSegments.textContent = String(chunks);
+    els.copyBtn.disabled = !state.text;
+    els.downloadBtn.disabled = !state.text;
+
+    if (errorMessage) {
+      setStatus("error", errorMessage);
+      toast(errorMessage, "error");
+    } else if (!state.text) {
+      setStatus("done", "Microphone stopped — no speech detected (" + clock(elapsed) + ").");
+      toast("No speech was detected in the live recording.", "info");
+    } else {
+      setStatus("done", "Live transcription · " + clock(elapsed) + " recorded · " + chunks +
+        (chunks === 1 ? " chunk" : " chunks"));
+      toast("Live transcription complete.", "success");
+    }
+    scrollTranscript(true);
+  }
+
+  // ---------------------------------------------------------------------
+  // Transcription (SSE)
+  // ---------------------------------------------------------------------
+  function resetRunUi() {
+    state.text = "";
+    state.segmentCount = 0;
+    state.words = 0;
+    state.chars = 0;
+    state.autoScroll = true;
+    els.emptyState.remove();
+    els.liveCaret.hidden = false;
+    els.transcript.querySelectorAll(".segment").forEach((node) => node.remove());
+    els.transcript.querySelectorAll(".empty-state").forEach((node) => node.remove());
+    els.statWords.textContent = "0";
+    els.statChars.textContent = "0";
+    els.statLanguage.textContent = "—";
+    els.statDuration.textContent = "—";
+    els.statSegments.textContent = "0";
+    els.copyBtn.disabled = true;
+    els.downloadBtn.disabled = true;
+    els.metricTime.innerHTML = "—<small>s</small>";
+    els.metricRtf.textContent = "—";
+    els.metricSpeed.textContent = "—";
+    els.metricRam.innerHTML = "—<small>MB</small>";
+    els.metricCpu.innerHTML = "—<small>%</small>";
+    els.metricSysRam.innerHTML = "—<small>%</small>";
+    els.metricTimeSub.textContent = "wall clock";
+    els.metricRtfSub.textContent = "RTF = time / audio";
+    els.metricSpeedSub.textContent = "vs. real time";
+    els.metricRamSub.textContent = "whole process";
+    els.metricCpuSub.textContent = "process average";
+    els.metricSysRamSub.textContent = "average used";
+    els.metricRtfCard.classList.remove("good", "warn");
+    els.metricSpeedCard.classList.remove("good", "warn");
+  }
+
+  function appendSegment(segment) {
+    state.segmentCount += 1;
+
+    const row = document.createElement("div");
+    row.className = "segment";
+
+    const time = document.createElement("span");
+    time.className = "segment-time";
+    time.textContent = clock(segment.start);
+
+    const text = document.createElement("span");
+    text.className = "segment-text";
+    text.textContent = segment.text;
+
+    row.append(time, text);
+    els.transcript.insertBefore(row, els.liveCaret);
+
+    const piece = String(segment.text || "").trim();
+    if (piece) {
+      state.text = state.text ? state.text + " " + piece : piece;
+      state.words += piece.split(/\s+/).filter(Boolean).length;
+      state.chars = state.text.length;
+    }
+    els.statWords.textContent = String(state.words);
+    els.statChars.textContent = String(state.chars);
+    els.statSegments.textContent = String(state.segmentCount);
+    scrollTranscript(false);
+  }
+
+  function renderMetrics(result) {
+    const rtf = Number(result.rtf) || 0;
+    const speed = Number(result.speedup) || 0;
+
+    els.metricTime.innerHTML = num(result.processing_time_sec, 2) + "<small>s</small>";
+    els.metricTimeSub.textContent = "audio: " + clock(result.audio_duration_sec);
+
+    els.metricRtf.textContent = rtf > 0 ? num(rtf, 3) : "—";
+    els.metricSpeed.textContent = speed > 0 ? num(speed, 2) + "×" : "—";
+
+    if (rtf > 0) {
+      const faster = rtf < 1;
+      els.metricRtfCard.classList.toggle("good", faster);
+      els.metricRtfCard.classList.toggle("warn", !faster);
+      els.metricSpeedCard.classList.toggle("good", faster);
+      els.metricSpeedCard.classList.toggle("warn", !faster);
+      els.metricRtfSub.textContent = faster ? "faster than real time" : "slower than real time";
+      els.metricSpeedSub.textContent = faster
+        ? "real time ÷ processing"
+        : "processing exceeds audio";
+    }
+
+    els.metricRam.innerHTML = num(result.peak_ram_mb, 0) + "<small>MB</small>";
+    els.metricRamSub.textContent = "delta +" + num(result.ram_delta_mb, 0) + " MB";
+    els.metricCpu.innerHTML = num(result.avg_process_cpu_pct, 0) + "<small>%</small>";
+    els.metricCpuSub.textContent = "peak " + num(result.peak_process_cpu_pct, 0) + "% · system " + num(result.avg_system_cpu_pct, 0) + "%";
+    els.metricSysRam.innerHTML = num(result.system_ram_pct, 0) + "<small>%</small>";
+    els.metricSysRamSub.textContent = "sampled every 100 ms";
+  }
+
+  function finishRun(result) {
+    if (typeof result.text === "string" && result.text.trim()) {
+      state.text = result.text.trim();
+    }
+    state.words = Number(result.words) || state.words;
+    state.chars = Number(result.characters) || state.chars;
+    els.statWords.textContent = String(state.words);
+    els.statChars.textContent = String(state.chars);
+    els.statLanguage.textContent = result.language
+      ? result.language + " · " + Math.round((Number(result.language_probability) || 0) * 100) + "%"
+      : "—";
+    els.statDuration.textContent = clock(result.audio_duration_sec);
+    els.statSegments.textContent = String(result.segments || state.segmentCount);
+    renderMetrics(result);
+
+    els.liveCaret.hidden = true;
+    els.copyBtn.disabled = !state.text;
+    els.downloadBtn.disabled = !state.text;
+    setBusy(false);
+    const summary = result.transcript_file
+      ? "Finished in " + num(result.processing_time_sec, 2) + " s · saved " + result.transcript_file
+      : "Finished in " + num(result.processing_time_sec, 2) + " s";
+    setStatus("done", summary);
+    els.healthDot.classList.add("done");
+    els.modelNote.textContent = "Model loaded and ready. It stays cached for the next run.";
+    els.modelNote.classList.add("loaded");
+    toast("Transcription complete · RTF " + num(result.rtf, 3), "success");
+    loadBenchmarks();
+    scrollTranscript(true);
+  }
+
+  function failRun(message) {
+    setBusy(false);
+    els.liveCaret.hidden = true;
+    setStatus("error", message);
+    els.copyBtn.disabled = !state.text;
+    els.downloadBtn.disabled = !state.text;
+
+    if (!state.segmentCount) {
+      els.transcript.querySelectorAll(".empty-state").forEach((node) => node.remove());
+      const box = document.createElement("div");
+      box.className = "empty-state error";
+
+      const glyph = document.createElement("div");
+      glyph.className = "glyph";
+      glyph.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path></svg>';
+
+      const title = document.createElement("p");
+      title.textContent = "Transcription failed";
+
+      const detail = document.createElement("small");
+      detail.textContent = message;
+
+      box.append(glyph, title, detail);
+      els.transcript.insertBefore(box, els.liveCaret);
+    }
+
+    toast(message, "error");
+  }
+
+  function closeStream() {
+    if (state.es) {
+      state.es.close();
+      state.es = null;
+    }
+  }
+
+  function startTranscription() {
+    if (state.busy) return;
+    if (state.live.active) {
+      toast("Stop the microphone recording first.", "info");
+      return;
+    }
+    const name = els.fileSelect.value || state.selected;
+    if (!name) {
+      toast("Choose an audio file first.", "error");
+      return;
+    }
+    state.selected = name;
+    closeStream();
+    resetRunUi();
+    setBusy(true);
+    setStatus("working", "Connecting to the local model…");
+
+    const source = new EventSource("/api/transcribe/stream?file=" + encodeURIComponent(name));
+    state.es = source;
+
+    source.addEventListener("status", (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.message) setStatus("working", payload.message);
+      } catch (_) { /* ignore malformed */ }
+    });
+
+    source.addEventListener("segment", (event) => {
+      try {
+        appendSegment(JSON.parse(event.data));
+      } catch (_) { /* ignore malformed */ }
+    });
+
+    source.addEventListener("done", (event) => {
+      closeStream();
+      try {
+        finishRun(JSON.parse(event.data));
+      } catch (error) {
+        failRun("Could not read the final result: " + error.message);
+      }
+    });
+
+    source.addEventListener("cancelled", () => {
+      closeStream();
+      setBusy(false);
+      setStatus("", "Transcription cancelled.");
+      toast("Transcription cancelled.", "info");
+    });
+
+    source.addEventListener("error", (event) => {
+      // Named server error event carries data; a transport failure does not.
+      if (event && typeof event.data === "string" && event.data) {
+        closeStream();
+        try {
+          const payload = JSON.parse(event.data);
+          failRun(payload.message || "Transcription failed.");
+        } catch (_) {
+          failRun("Transcription failed.");
+        }
+        return;
+      }
+      if (state.busy) {
+        closeStream();
+        failRun("Lost the connection to the server.");
+      }
+    });
+  }
+
+  function stopTranscription() {
+    if (!state.busy) return;
+    closeStream();
+    setBusy(false);
+    els.liveCaret.hidden = true;
+    setStatus("", "Transcription cancelled.");
+    toast("Transcription cancelled.", "info");
+  }
+
+  // ---------------------------------------------------------------------
+  // History
+  // ---------------------------------------------------------------------
+  function renderHistory(rows) {
+    els.historyBody.innerHTML = "";
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 9;
+      td.className = "table-empty";
+      td.textContent = "No benchmark runs yet — your first transcription will show up here.";
+      tr.appendChild(td);
+      els.historyBody.appendChild(tr);
+      els.historyCount.textContent = "0 runs";
+      return;
+    }
+
+    rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      const cells = [
+        formatWhen(row.timestamp),
+        row.file || "—",
+        clock(row.audio_duration_sec),
+        num(row.processing_time_sec, 2) + " s",
+        num(row.rtf, 3),
+        (Number(row.speedup) > 0 ? num(row.speedup, 2) + "×" : "—"),
+        num(row.peak_ram_mb, 0) + " MB",
+        num(row.avg_process_cpu_pct, 0) + "%",
+      ];
+      cells.forEach((value, index) => {
+        const td = document.createElement("td");
+        td.textContent = value;
+        if (index === 1) {
+          td.className = "file-cell";
+          td.title = value;
+        }
+        tr.appendChild(td);
+      });
+
+      const statusCell = document.createElement("td");
+      const badge = document.createElement("span");
+      const success = row.success === true || row.success === "True" || row.success === "true";
+      if (success) {
+        const fast = Number(row.rtf) > 0 && Number(row.rtf) < 1;
+        badge.className = "badge " + (fast ? "good" : "slow");
+        badge.textContent = fast ? "faster" : "slower";
+        badge.title = fast ? "Faster than real time" : "Slower than real time";
+      } else {
+        badge.className = "badge fail";
+        badge.textContent = "failed";
+        badge.title = row.error || "Transcription failed";
+      }
+      statusCell.appendChild(badge);
+      tr.appendChild(statusCell);
+      els.historyBody.appendChild(tr);
+    });
+    els.historyCount.textContent = rows.length + (rows.length === 1 ? " run" : " runs");
+  }
+
+  async function loadBenchmarks() {
+    try {
+      const data = await api("/api/benchmarks?limit=" + MAX_HISTORY);
+      const rows = data.rows || [];
+      renderHistory(rows);
+      if (data.total > rows.length) {
+        els.historyCount.textContent = rows.length + " of " + data.total + " runs";
+      }
+    } catch (error) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 9;
+      td.className = "table-empty";
+      td.textContent = "Could not load benchmark history: " + error.message;
+      els.historyBody.innerHTML = "";
+      tr.appendChild(td);
+      els.historyBody.appendChild(tr);
+    }
+  }
+
+  async function loadHealth() {
+    try {
+      const health = await api("/api/health");
+      if (health.model_loaded) {
+        els.modelNote.textContent = "Model loaded and ready. It stays cached for the next run.";
+        els.modelNote.classList.add("loaded");
+        els.healthDot.classList.add("done");
+      }
+    } catch (_) { /* non-critical */ }
+  }
+
+  // ---------------------------------------------------------------------
+  // Transcript actions
+  // ---------------------------------------------------------------------
+  async function copyTranscript() {
+    if (!state.text) return;
+    try {
+      await navigator.clipboard.writeText(state.text);
+      toast("Transcript copied to the clipboard.", "success");
+    } catch (_) {
+      const area = document.createElement("textarea");
+      area.value = state.text;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+      toast("Transcript copied to the clipboard.", "success");
+    }
+  }
+
+  function downloadTranscript() {
+    if (!state.text) return;
+    const blob = new Blob([state.text + "\n"], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const base = (state.selected || "transcript").replace(/\.[^.]+$/, "");
+    link.href = url;
+    link.download = base + "_transcript.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------------------------------------------------------------------
+  // Event wiring
+  // ---------------------------------------------------------------------
+  els.fileSelect.addEventListener("change", () => {
+    state.selected = els.fileSelect.value || null;
+    updateFileMeta();
+  });
+
+  els.refreshBtn.addEventListener("click", () => loadFiles());
+  els.historyRefreshBtn.addEventListener("click", loadBenchmarks);
+
+  els.deleteBtn.addEventListener("click", async () => {
+    const name = state.selected;
+    if (!name) return;
+    if (!window.confirm('Delete "' + name + '" from the audio folder?')) return;
+    els.deleteBtn.disabled = true;
+    try {
+      const data = await api("/api/files/" + encodeURIComponent(name), { method: "DELETE" });
+      state.files = data.files || [];
+      state.selected = null;
+      renderFiles();
+      toast("Deleted " + name, "success");
+    } catch (error) {
+      toast(error.message, "error");
+      els.deleteBtn.disabled = false;
+    }
+  });
+
+  els.dropzone.addEventListener("click", (event) => {
+    if (state.busy) return;
+    // Avoid re-entering when the hidden file input's own click bubbles up.
+    if (event.target === els.fileInput) return;
+    els.fileInput.click();
+  });
+  els.dropzone.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (!state.busy) els.fileInput.click();
+    }
+  });
+  els.fileInput.addEventListener("change", () => {
+    handleUpload(els.fileInput.files && els.fileInput.files[0]);
+  });
+  ["dragenter", "dragover"].forEach((type) => {
+    els.dropzone.addEventListener(type, (event) => {
+      event.preventDefault();
+      if (!state.busy) els.dropzone.classList.add("dragover");
+    });
+  });
+  ["dragleave", "dragend", "drop"].forEach((type) => {
+    els.dropzone.addEventListener(type, (event) => {
+      event.preventDefault();
+      els.dropzone.classList.remove("dragover");
+    });
+  });
+  els.dropzone.addEventListener("drop", (event) => {
+    const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+    handleUpload(file);
+  });
+
+  els.sampleBtn.addEventListener("click", generateSample);
+  els.micBtn.addEventListener("click", () => {
+    if (state.live.active) {
+      stopLive();
+    } else {
+      startLive();
+    }
+  });
+  els.transcribeBtn.addEventListener("click", startTranscription);
+  els.cancelBtn.addEventListener("click", stopTranscription);
+  els.copyBtn.addEventListener("click", copyTranscript);
+  els.downloadBtn.addEventListener("click", downloadTranscript);
+
+  els.transcript.addEventListener("scroll", () => {
+    const el = els.transcript;
+    state.autoScroll = el.scrollHeight - el.scrollTop - el.clientHeight < 70;
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      startTranscription();
+    } else if (event.key === "Escape") {
+      if (state.live.active) {
+        stopLive();
+      } else if (state.busy) {
+        stopTranscription();
+      }
+    }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    closeStream();
+    teardownLive();
+  });
+
+  // ---------------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------------
+  (async function boot() {
+    updateMicUi();
+    await loadConfig();
+    await loadFiles();
+    loadHealth();
+    loadBenchmarks();
+  })();
+})();
+</script>
+</body>
+</html>
